@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Voice Generator</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #6C63FF; --secondary: #00D9FF; --bg-dark: #0a0e27;
+            --bg-card: rgba(255, 255, 255, 0.05); --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.7); --border: rgba(255, 255, 255, 0.1);
+            --success: #00E676; --error: #FF5252;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
+            color: var(--text-primary); min-height: 100vh; overflow-x: hidden;
+        }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; }
+        .header { text-align: center; margin-bottom: 30px; padding-top: 20px; }
+        .header h1 { font-size: 28px; font-weight: 700; background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+        .header p { color: var(--text-secondary); font-size: 14px; }
+        .glass-card { background: var(--bg-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 20px; padding: 24px; margin-bottom: 20px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }
+        .textarea-wrapper { position: relative; margin-bottom: 20px; }
+        textarea { width: 100%; min-height: 150px; padding: 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 12px; color: var(--text-primary); font-size: 16px; line-height: 1.6; resize: vertical; transition: all 0.3s ease; font-family: inherit; }
+        textarea:focus { outline: none; border-color: var(--primary); background: rgba(255, 255, 255, 0.05); box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.1); }
+        textarea::placeholder { color: var(--text-secondary); }
+        .char-counter { position: absolute; bottom: 12px; right: 12px; font-size: 12px; color: var(--text-secondary); background: rgba(0, 0, 0, 0.5); padding: 4px 8px; border-radius: 6px; }
+        .char-counter.warning { color: #FFA726; } .char-counter.error { color: var(--error); }
+        .voice-selection { margin-bottom: 20px; }
+        .voice-selection label { display: block; margin-bottom: 12px; color: var(--text-secondary); font-size: 14px; font-weight: 500; }
+        .voice-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .voice-option { position: relative; }
+        .voice-option input[type="radio"] { position: absolute; opacity: 0; cursor: pointer; }
+        .voice-label { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; background: rgba(255, 255, 255, 0.03); border: 2px solid var(--border); border-radius: 12px; cursor: pointer; transition: all 0.3s ease; font-size: 14px; font-weight: 500; }
+        .voice-label:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(108, 99, 255, 0.3); }
+        .voice-option input[type="radio"]:checked + .voice-label { background: rgba(108, 99, 255, 0.15); border-color: var(--primary); box-shadow: 0 0 20px rgba(108, 99, 255, 0.3); }
+        .voice-icon { font-size: 20px; }
+        .btn { width: 100%; padding: 16px 24px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px; }
+        .btn-primary { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; box-shadow: 0 4px 20px rgba(108, 99, 255, 0.4); }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 30px rgba(108, 99, 255, 0.6); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-secondary { background: rgba(255, 255, 255, 0.1); color: var(--text-primary); border: 1px solid var(--border); }
+        .btn-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.15); }
+        .btn-secondary:disabled { opacity: 0.3; cursor: not-allowed; }
+        .audio-player { margin-top: 20px; display: none; }
+        .audio-player.active { display: block; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        audio { width: 100%; height: 50px; border-radius: 12px; margin-bottom: 12px; }
+        .loading { display: none; text-align: center; padding: 20px; }
+        .loading.active { display: block; }
+        .spinner { width: 50px; height: 50px; border: 4px solid rgba(108, 99, 255, 0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { color: var(--text-secondary); font-size: 14px; }
+        .error-message { background: rgba(255, 82, 82, 0.1); border: 1px solid var(--error); color: var(--error); padding: 12px 16px; border-radius: 12px; margin-top: 12px; display: none; font-size: 14px; }
+        .error-message.active { display: block; animation: shake 0.5s ease; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
+        .success-message { background: rgba(0, 230, 118, 0.1); border: 1px solid var(--success); color: var(--success); padding: 12px 16px; border-radius: 12px; margin-top: 12px; display: none; font-size: 14px; }
+        .success-message.active { display: block; }
+        @media (max-width: 480px) { .container { padding: 16px; } .header h1 { font-size: 24px; } .glass-card { padding: 20px; } textarea { min-height: 120px; font-size: 15px; } }
+        .neon-glow { position: fixed; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(108, 99, 255, 0.1) 0%, transparent 70%); pointer-events: none; z-index: -1; }
+    </style>
+</head>
+<body>
+    <div class="neon-glow"></div>
+    <div class="container">
+        <div class="header">
+            <h1>🎙️ Voice Generator</h1>
+            <p>Matnni professional ovozga aylantiring</p>
+        </div>
+        <div class="glass-card">
+            <div class="textarea-wrapper">
+                <textarea id="textInput" placeholder="Matnni shu yerga kiriting..." maxlength="4096"></textarea>
+                <div class="char-counter" id="charCounter">0 / 4096</div>
+            </div>
+            <div class="voice-selection">
+                <label>Ovoz turini tanlang:</label>
+                <div class="voice-options">
+                    <div class="voice-option">
+                        <input type="radio" id="voice-male" name="voice" value="onyx" checked>
+                        <label for="voice-male" class="voice-label"><span class="voice-icon">👨</span><span>Erkak ovozi</span></label>
+                    </div>
+                    <div class="voice-option">
+                        <input type="radio" id="voice-female" name="voice" value="nova">
+                        <label for="voice-female" class="voice-label"><span class="voice-icon">👩</span><span>Ayol ovozi</span></label>
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-primary" id="generateBtn" onclick="generateVoice()">
+                <span>🎵</span><span>Ovoz yaratish</span>
+            </button>
+            <div class="loading" id="loading"><div class="spinner"></div><div class="loading-text">Ovoz yaratilmoqda...</div></div>
+            <div class="error-message" id="errorMessage"></div>
+            <div class="success-message" id="successMessage"></div>
+            <div class="audio-player" id="audioPlayer">
+                <audio id="audioElement" controls></audio>
+                <button class="btn btn-secondary" id="sendToTelegram" onclick="sendToTelegram()">
+                    <span>📤</span><span>Telegramga yuborish</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand(); tg.ready();
+        tg.setHeaderColor('#0a0e27'); tg.setBackgroundColor('#0a0e27');
+
+        const textInput = document.getElementById('textInput');
+        const charCounter = document.getElementById('charCounter');
+        const generateBtn = document.getElementById('generateBtn');
+        const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const audioElement = document.getElementById('audioElement');
+        const sendToTelegramBtn = document.getElementById('sendToTelegram');
+        let currentAudioBlob = null;
+
+        textInput.addEventListener('input', function() {
+            const length = this.value.length;
+            charCounter.textContent = `${length} / 4096`;
+            if (length > 4000) { charCounter.classList.add('error'); charCounter.classList.remove('warning'); } 
+            else if (length > 3500) { charCounter.classList.add('warning'); charCounter.classList.remove('error'); } 
+            else { charCounter.classList.remove('warning', 'error'); }
+        });
+
+        function hideMessages() { errorMessage.classList.remove('active'); successMessage.classList.remove('active'); }
+        function showError(message) { hideMessages(); errorMessage.textContent = message; errorMessage.classList.add('active'); }
+        function showSuccess(message) { hideMessages(); successMessage.textContent = message; successMessage.classList.add('active'); }
+
+        async function generateVoice() {
+            const text = textInput.value.trim();
+            if (!text) { showError('Iltimos, matn kiriting'); return; }
+            if (text.length > 4096) { showError('Matn juda uzun'); return; }
+
+            const selectedVoice = document.querySelector('input[name="voice"]:checked').value;
+            let voiceIdToSend = 'EXAVITQu4vr4xnSDxMaL'; // Sarah (Ayol)
+            
+            if (selectedVoice === 'onyx') {
+                voiceIdToSend = 'ErXwobaYiN019PkySvjV'; // Antony (Erkak)
+            }
+
+            hideMessages();
+            loading.classList.add('active');
+            generateBtn.disabled = true;
+            audioPlayer.classList.remove('active');
+
+            try {
+                const response = await fetch('/generate-voice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text, voice: voiceIdToSend })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Xatolik yuz berdi');
+                }
+
+                const audioBlob = await response.blob();
+                currentAudioBlob = audioBlob;
+                const audioUrl = URL.createObjectURL(audioBlob);
+                audioElement.src = audioUrl;
+
+                loading.classList.remove('active');
+                audioPlayer.classList.add('active');
+                showSuccess('✅ Ovoz muvaffaqiyatli yaratildi!');
+
+            } catch (error) {
+                loading.classList.remove('active');
+                showError('❌ ' + error.message);
+            } finally {
+                generateBtn.disabled = false;
+            }
+        }
+
+        // YANGILANGAN FUNKSIYA: TELEGRAMGA YUBORISH
+        function sendToTelegram() {
+            if (!currentAudioBlob) { 
+                showError('Avval ovoz yarating'); 
+                return; 
+            }
+
+            // Tugmani bloklash va yuklanish holati
+            const originalText = sendToTelegramBtn.innerHTML;
+            sendToTelegramBtn.disabled = true;
+            sendToTelegramBtn.innerHTML = '<span>⏳</span><span>Yuborilmoqda...</span>';
+
+            const reader = new FileReader();
+            reader.onloadend = function() {
+                try {
+                    const base64Audio = reader.result.split(',')[1];
+                    
+                    // Telegram Web App ga ma'lumot yuborish
+                    tg.sendData(JSON.stringify({
+                        action: 'send_audio',
+                        audio: base64Audio,
+                        filename: 'voice.mp3'
+                    }));
+                    
+                    showSuccess('✅ Audio Telegramga yuborildi!');
+                } catch (err) {
+                    showError('❌ Yuborishda xatolik: ' + err.message);
+                } finally {
+                    sendToTelegramBtn.disabled = false;
+                    sendToTelegramBtn.innerHTML = originalText;
+                }
+            };
+            
+            reader.onerror = function() {
+                showError('❌ Faylni o\'qishda xatolik');
+                sendToTelegramBtn.disabled = false;
+                sendToTelegramBtn.innerHTML = originalText;
+            };
+            
+            reader.readAsDataURL(currentAudioBlob);
+        }
+    </script>
+</body>
+</html>
