@@ -1,12 +1,12 @@
-import os, io, json, base64, asyncio, requests
+import os, io, json, base64, asyncio, requests, threading
 from flask import Flask, request, jsonify, render_template, send_file
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# SOZLAMALAR (Vercel uchun muhit o'zgaruvchilaridan olinadi)
-TOKEN = os.environ.get("BOT_TOKEN")
-ELEVEN_KEY = os.environ.get("ELEVENLABS_API_KEY")
-WEB_URL = os.environ.get("WEB_APP_URL", "https://voice.vercel.app") # Vaqtincha
+# SOZLAMALAR (Render Environment Variables dan olinadi)
+TOKEN = os.environ.get("BOT_TOKEN", "8863844713:AAE5ldHvA9V2AduZH7V3qiJZrV4fKGchT2I")
+ELEVEN_KEY = os.environ.get("ELEVENLABS_API_KEY", "sk_3b151807bc0c25aa79731fa312361d7b14f0a47b7c5f2b68") 
+WEB_URL = os.environ.get("WEB_APP_URL", "https://sizning-render-manzilingiz.onrender.com")
 
 app = Flask(__name__, template_folder='.', static_folder='.')
 
@@ -36,7 +36,7 @@ def gen_voice():
 
 # BOT LOGIKASI
 async def start_cmd(u, c):
-    kb = [[InlineKeyboardButton("️ Ilovani ochish", web_app={"url": WEB_URL})]]
+    kb = [[InlineKeyboardButton("🎙️ Ilovani ochish", web_app={"url": WEB_URL})]]
     await u.message.reply_text("Salom! Ovoz yaratish uchun tugmani bosing.", reply_markup=InlineKeyboardMarkup(kb))
 
 async def handle_data(u, c):
@@ -60,10 +60,32 @@ def wh():
         print(f"Webhook xato: {e}")
         return 'ERROR', 500
 
-# GLOBAL APPLICATION (Vercel da har so'rovda qayta yaratiladi)
+# GLOBAL APPLICATION
 application = Application.builder().token(TOKEN).build()
 application.add_handler(CommandHandler("start", start_cmd))
 application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_data))
 
-# Vercel uchun WSGI obyekti
-# Eslatma: Vercel avtomatik app obyektini topadi
+# RENDER UCHUN MAXSUS ISHGA TUSHIRISH
+def run_bot_async():
+    """Botni alohida thread da ishga tushirish"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    async def setup():
+        # Webhook ni o'rnatish
+        await application.bot.set_webhook(f"{WEB_URL}/webhook")
+        print("✅ Webhook o'rnatildi!")
+        
+    loop.run_until_complete(setup())
+    # Botni doimiy kutish rejimida ushlab turish
+    loop.run_forever()
+
+if __name__ == '__main__':
+    # 1. Botni fon rejimida ishga tushirish
+    bot_thread = threading.Thread(target=run_bot_async, daemon=True)
+    bot_thread.start()
+    
+    # 2. Flask serverini ishga tushirish (Render PORT muhit o'zgaruvchisidan oladi)
+    port = int(os.environ.get("PORT", 10000))
+    print(f"🚀 Server {port} portda ishga tushdi...")
+    app.run(host='0.0.0.0', port=port)
