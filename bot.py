@@ -10,6 +10,8 @@ WEB_URL = os.environ.get("WEB_APP_URL", "https://sizning-render-manzilingiz.onre
 
 app = Flask(__name__, template_folder='.', static_folder='.')
 
+def fix_text(t):
+    return t.replace("axmoq", "ahmoq")
 
 @app.route('/')
 def index(): 
