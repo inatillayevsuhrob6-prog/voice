@@ -38,7 +38,7 @@ def gen_voice():
 
 # BOT LOGIKASI
 async def start_cmd(u, c):
-    kb = [[InlineKeyboardButton("🎙️ Ilovani ochish", web_app={"url": WEB_URL})]]
+    kb = [[InlineKeyboardButton("️ Ilovani ochish", web_app={"url": WEB_URL})]]
     await u.message.reply_text("Salom! Ovoz yaratish uchun tugmani bosing.", reply_markup=InlineKeyboardMarkup(kb))
 
 async def handle_data(u, c):
@@ -48,19 +48,29 @@ async def handle_data(u, c):
         d = json.loads(data_str)
         if d.get('action') == 'send_audio' and d.get('audio'):
             ab = base64.b64decode(d['audio'])
-            await c.bot.send_audio(u.effective_chat.id, io.BytesIO(ab), caption="️ Tayyor ovoz:", title="Voice Bot")
+            await c.bot.send_audio(u.effective_chat.id, io.BytesIO(ab), caption="🎙️ Tayyor ovoz:", title="Voice Bot")
     except Exception as e: print(f"Bot xato: {e}")
 
 # Webhook marshruti (Xatoliklarni ushlovchi)
 @app.route('/webhook', methods=['POST'])
 def wh():
     try:
+        # 1. JSON ma'lumotni olish
         update_json = request.get_json(force=True, silent=True)
         if not update_json:
             return 'Invalid JSON', 400
             
+        # 2. Application mavjudligini tekshirish
+        if application is None:
+            print("❌ XATOLIK: Application obyekti yaratilmagan!")
+            return 'App Not Ready', 503
+            
+        # 3. Update obyektini yaratish
         upd = Update.de_json(update_json, application.bot)
+        
+        # 4. Xabarni qayta ishlash
         asyncio.run(application.process_update(upd))
+        
         return 'OK'
     except Exception as e:
         print(f"❌ WEBHOOK XATOSI: {e}")
