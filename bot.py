@@ -6,7 +6,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 # SOZLAMALAR (Render Environment Variables dan olinadi)
 TOKEN = os.environ.get("BOT_TOKEN", "8863844713:AAE5ldHvA9V2AduZH7V3qiJZrV4fKGchT2I")
 ELEVEN_KEY = os.environ.get("ELEVENLABS_API_KEY", "sk_3b151807bc0c25aa79731fa312361d7b14f0a47b7c5f2b68") 
-WEB_URL = os.environ.get("WEB_APP_URL", "https://sizning-render-manzilingiz.onrender.com")
+WEB_URL = os.environ.get("WEB_APP_URL", "https://voice-7qv5.onrender.com")
 
 app = Flask(__name__, template_folder='.', static_folder='.')
 
