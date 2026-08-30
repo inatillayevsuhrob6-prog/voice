@@ -3,10 +3,10 @@ from flask import Flask, request, jsonify, render_template, send_file
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# SOZLAMALAR (Render Environment Variables dan olinadi)
+# SOZLAMALAR
 TOKEN = os.environ.get("BOT_TOKEN", "8863844713:AAE5ldHvA9V2AduZH7V3qiJZrV4fKGchT2I")
 ELEVEN_KEY = os.environ.get("ELEVENLABS_API_KEY", "sk_3b151807bc0c25aa79731fa312361d7b14f0a47b7c5f2b68") 
-WEB_URL = os.environ.get("WEB_APP_URL", "https://voice-7qv5.onrender.com")
+WEB_URL = os.environ.get("WEB_APP_URL", "https://voice-7qv5.onrender.com") # Yangi manzil
 
 app = Flask(__name__, template_folder='.', static_folder='.')
 
@@ -48,46 +48,55 @@ async def handle_data(u, c):
         d = json.loads(data_str)
         if d.get('action') == 'send_audio' and d.get('audio'):
             ab = base64.b64decode(d['audio'])
-            await c.bot.send_audio(u.effective_chat.id, io.BytesIO(ab), caption="🎙️ Tayyor ovoz:", title="Voice Bot")
+            await c.bot.send_audio(u.effective_chat.id, io.BytesIO(ab), caption="️ Tayyor ovoz:", title="Voice Bot")
     except Exception as e: print(f"Bot xato: {e}")
 
-# Webhook marshruti
+# Webhook marshruti (Xatoliklarni ushlovchi)
 @app.route('/webhook', methods=['POST'])
 def wh():
     try:
-        upd = Update.de_json(request.get_json(force=True), application.bot)
+        update_json = request.get_json(force=True, silent=True)
+        if not update_json:
+            return 'Invalid JSON', 400
+            
+        upd = Update.de_json(update_json, application.bot)
         asyncio.run(application.process_update(upd))
         return 'OK'
     except Exception as e:
-        print(f"Webhook xato: {e}")
+        print(f"❌ WEBHOOK XATOSI: {e}")
+        import traceback
+        traceback.print_exc()
         return 'ERROR', 500
 
 # GLOBAL APPLICATION
-application = Application.builder().token(TOKEN).build()
-application.add_handler(CommandHandler("start", start_cmd))
-application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_data))
+try:
+    application = Application.builder().token(TOKEN).build()
+    application.add_handler(CommandHandler("start", start_cmd))
+    application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_data))
+    print("✅ Bot application yaratildi!")
+except Exception as e:
+    print(f"❌ Application xatosi: {e}")
+    application = None
 
-# RENDER UCHUN MAXSUS ISHGA TUSHIRISH
+# RENDER UCHUN ISHGA TUSHIRISH
 def run_bot_async():
-    """Botni alohida thread da ishga tushirish"""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
     async def setup():
-        # Webhook ni o'rnatish
-        await application.bot.set_webhook(f"{WEB_URL}/webhook")
-        print("✅ Webhook o'rnatildi!")
-        
+        if application:
+            await application.bot.set_webhook(f"{WEB_URL}/webhook")
+            print("✅ Webhook o'rnatildi!")
+        else:
+            print("❌ Application mavjud emas!")
+            
     loop.run_until_complete(setup())
-    # Botni doimiy kutish rejimida ushlab turish
     loop.run_forever()
 
 if __name__ == '__main__':
-    # 1. Botni fon rejimida ishga tushirish
     bot_thread = threading.Thread(target=run_bot_async, daemon=True)
     bot_thread.start()
     
-    # 2. Flask serverini ishga tushirish (Render PORT muhit o'zgaruvchisidan oladi)
     port = int(os.environ.get("PORT", 10000))
     print(f"🚀 Server {port} portda ishga tushdi...")
     app.run(host='0.0.0.0', port=port)
